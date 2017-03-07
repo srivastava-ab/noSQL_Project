@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "_type": {
+      "type": "string",
+      "id": "http://jsonschema.net/_type"
+    },
+    "objectType": {
+      "type": "string",
+      "id": "http://jsonschema.net/objectType"
+    },
+    "_id": {
+      "type": "string",
+      "id": "http://jsonschema.net/_id"
+    },
+    "objectId": {
+      "type": "string",
+      "id": "http://jsonschema.net/objectId"
+    },
+    "creationDate": {
+      "type": "string",
+      "id": "http://jsonschema.net/creationDate"
+    },
+    "test_prop": {
+      "type": "number",
+      "id": "http://jsonschema.net/creationDate"
+    },
+    "planCostShares": {
+      "type": "object",
+      "properties": {
+        "copay": {
+          "type": "integer",
+          "id": "http://jsonschema.net/planCostShares/copay"
+        },
+        "objectType": {
+          "type": "string",
+          "id": "http://jsonschema.net/planCostShares/objectType"
+        },
+        "_type": {
+          "type": "string",
+          "id": "http://jsonschema.net/planCostShares/_type"
+        },
+        "objectId": {
+          "type": "string",
+          "id": "http://jsonschema.net/planCostShares/objectId"
+        },
+        "_id": {
+          "type": "string",
+          "id": "http://jsonschema.net/planCostShares/_id"
+        },
+        "deductible": {
+          "type": "integer",
+          "id": "http://jsonschema.net/planCostShares/deductible"
+        }
+      },
+      "id": "http://jsonschema.net/planCostShares",
+      "required": [
+        "copay",
+        "objectType",
+        "_type",
+        "objectId",
+        "_id",
+        "deductible"
+      ]
+    },
+    "linkedPlanServices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "objectType": {
+            "type": "string",
+            "id": "http://jsonschema.net/linkedPlanServices/1/objectType"
+          },
+          "_type": {
+            "type": "string",
+            "id": "http://jsonschema.net/linkedPlanServices/1/_type"
+          },
+          "objectId": {
+            "type": "string",
+            "id": "http://jsonschema.net/linkedPlanServices/1/objectId"
+          },
+          "_id": {
+            "type": "string",
+            "id": "http://jsonschema.net/linkedPlanServices/1/_id"
+          },
+          "planserviceCostShares": {
+            "type": "object",
+            "properties": {
+              "copay": {
+                "type": "integer",
+                "id": "http://jsonschema.net/linkedPlanServices/1/planserviceCostShares/copay"
+              },
+              "objectType": {
+                "type": "string",
+                "id": "http://jsonschema.net/linkedPlanServices/1/planserviceCostShares/objectType"
+              },
+              "_type": {
+                "type": "string",
+                "id": "http://jsonschema.net/linkedPlanServices/1/planserviceCostShares/_type"
+              },
+              "objectId": {
+                "type": "string",
+                "id": "http://jsonschema.net/linkedPlanServices/1/planserviceCostShares/objectId"
+              },
+              "_id": {
+                "type": "string",
+                "id": "http://jsonschema.net/linkedPlanServices/1/planserviceCostShares/_id"
+              },
+              "deductible": {
+                "type": "integer",
+                "id": "http://jsonschema.net/linkedPlanServices/1/planserviceCostShares/deductible"
+              }
+            },
+            "id": "http://jsonschema.net/linkedPlanServices/1/planserviceCostShares",
+            "required": [
+              "copay",
+              "objectType",
+              "_type",
+              "objectId",
+              "_id",
+              "deductible"
+            ]
+          },
+          "linkedService": {
+            "type": "object",
+            "properties": {
+              "objectType": {
+                "type": "string",
+                "id": "http://jsonschema.net/linkedPlanServices/1/linkedService/objectType"
+              },
+              "_type": {
+                "type": "string",
+                "id": "http://jsonschema.net/linkedPlanServices/1/linkedService/_type"
+              },
+              "objectId": {
+                "type": "string",
+                "id": "http://jsonschema.net/linkedPlanServices/1/linkedService/objectId"
+              },
+              "_id": {
+                "type": "string",
+                "id": "http://jsonschema.net/linkedPlanServices/1/linkedService/_id"
+              }
+            },
+            "id": "http://jsonschema.net/linkedPlanServices/1/linkedService",
+            "required": [
+              "objectType",
+              "_type",
+              "objectId",
+              "_id"
+            ]
+          }
+        },
+        "id": "http://jsonschema.net/linkedPlanServices/1",
+        "required": [
+          "objectType",
+          "_type",
+          "objectId",
+          "_id",
+          "planserviceCostShares",
+          "linkedService"
+        ]
+      },
+      "id": "http://jsonschema.net/linkedPlanServices"
+    }
+  },
+  "id": "http://jsonschema.net",
+  "required": [
+    "_type",
+    "objectType",
+    "_id",
+    "objectId",
+    "creationDate",
+    "planCostShares",
+    "linkedPlanServices"
+  ]
+}
