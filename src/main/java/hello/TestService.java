@@ -53,57 +53,6 @@ public class TestService {
 	public Jedis jedis;
 	public JSONParser jsonparser;
 
-	// @RequestMapping(value = "/plan", method = RequestMethod.POST)
-	// @ResponseBody
-	// public String storeTopLevel(@RequestBody JSONObject jsonObject)
-	// throws FileNotFoundException, IOException, ParseException,
-	// ProcessingException {
-	//
-	// JSONObject jsonSchemaObj = (JSONObject) jsonparser
-	// .parse(new FileReader("src/main/resources/insurance_plan.json"));
-	// System.out.println(jsonSchemaObj.toString());
-	// String status = ValidationUtils.isJsonValid(jsonSchemaObj.toString(),
-	// jsonObject.toString());
-	// if (status == "success") {
-	// String UUIDValue = getHash();
-	// jsonObject.toString();
-	// // Jedis jedis = getRedisConnection();
-	// jedis.set(UUIDValue, jsonObject.toJSONString());
-	//
-	// // JSONObject test_jsonObject = new JSONObject();
-	// return UUIDValue;
-	// }
-	// return status;
-	//
-	// }
-
-	// @RequestMapping(value = "/plan/{id}", method = RequestMethod.PUT)
-	// @ResponseBody
-	// public String updateTopLevel(@RequestBody JSONObject jsonObject,
-	// @PathVariable String id)
-	// throws FileNotFoundException, IOException, ParseException,
-	// ProcessingException {
-	//
-	// JSONObject jsonSchemaObj = (JSONObject) jsonparser
-	// .parse(new FileReader("src/main/resources/insurance_plan.json"));
-	// System.out.println(jsonSchemaObj.toString());
-	// String status = ValidationUtils.isJsonValid(jsonSchemaObj.toString(),
-	// jsonObject.toString());
-	// if (status == "success") {
-	// // Jedis jedis = getRedisConnection();
-	// String jsonString = jedis.get(id);
-	//
-	// if (null != jsonString) {
-	// jsonObject.toString();
-	// jedis.set(id, jsonObject.toJSONString());
-	// }
-	// status = "Plan does not exist";
-	// // JSONObject test_jsonObject = new JSONObject();
-	// return status;
-	// }
-	// return status;
-	//
-	// }
 
 	public TestService() {
 
@@ -111,84 +60,6 @@ public class TestService {
 		jsonparser = getJsonParser();
 
 	}
-
-	// @RequestMapping(value = "/plan/{id}", method = RequestMethod.GET)
-	// @ResponseBody
-	// public JSONObject getTopLevel(@PathVariable String id) {
-	//
-	// // Jedis jedis = getRedisConnection();
-	//
-	// String jsonString = jedis.get(id);
-	//
-	// JSONObject json = new JSONObject();
-	//
-	// if (null != jsonString) {
-	// try {
-	// json = (JSONObject) jsonparser.parse(jsonString);
-	// } catch (ParseException e) {
-	// // TODO Auto-generated catch block
-	// e.printStackTrace();
-	// }
-	// }
-	//
-	// json.put("Message", "Does not Exist");
-	// return json;
-	// }
-
-	// @RequestMapping(value = "/plan", method = RequestMethod.GET)
-	// @ResponseBody
-	// public String getAllObjects() throws ParseException {
-	//
-	// // Jedis jedis = getRedisConnection();
-	//
-	// HashSet<String> as = (HashSet<String>) jedis.keys("*");
-	// JSONObject json = new JSONObject();
-	// String startJson = "[";
-	// String endJson = "]";
-	// String initial = "{}";
-	// String jsonTotal = null;
-	// for (String temp : as) {
-	// // System.out.println("List of stored keys:: " + jedis.get(temp));
-	//
-	// if (jedis.type(temp).equals("string")) {
-	// String jsonString = jedis.get(temp);
-	//
-	// initial = initial + "," + jsonString;
-	//
-	// }
-	//
-	// }
-	// jsonTotal = startJson + "," + initial + "," + endJson;
-	//
-	// // json = (JSONObject) getJsonParser().parse(jsonTotal);
-	// // JSONObject json = new JSONObject();
-	// return jsonTotal;
-	// }
-
-	// @RequestMapping(value = "/plan/{id}", method = RequestMethod.DELETE)
-	// @ResponseBody
-	// public JSONObject deleteById(@PathVariable String id) {
-	//
-	// // Jedis jedis = getRedisConnection();
-	//
-	// String jsonString = jedis.get(id);
-	// JSONParser jsonParser = new JSONParser();
-	// JSONObject json = new JSONObject();
-	//
-	// if (null != jsonString) {
-	// jedis.del(id);
-	// try {
-	// json = (JSONObject) jsonParser.parse(jsonString);
-	// } catch (ParseException e) {
-	// // TODO Auto-generated catch block
-	// e.printStackTrace();
-	// }
-	// } else {
-	// json.put("Plan:", "Does not exist");
-	// }
-	//
-	// return json;
-	// }
 
 	@RequestMapping(value = "/test_nesting/{id}", method = RequestMethod.DELETE)
 	@ResponseBody
@@ -207,21 +78,7 @@ public class TestService {
 		}
 	}
 
-	// @RequestMapping(value = "/test_nesting/{id}", method = RequestMethod.PUT)
-	// @ResponseBody
-	// public String putExistingid(@PathVariable String id, @RequestBody
-	// JSONObject jsonObject)
-	// throws JsonParseException, JsonMappingException, IOException {
-	// if (!jedis.hgetAll(id).isEmpty()) {
-	// deleteById(id);
-	//
-	// recursion(jsonObject.toJSONString(), id);
-	// return "Success";
-	// } else {
-	// return "Specified Id does not Exist";
-	// }
-	//
-	// }
+	
 
 	private void deleteById(String id) {
 		Set<String> keys = jedis.keys(id + "*");
@@ -428,25 +285,6 @@ public class TestService {
 
 	}
 
-	public String checkJsonAndMergeIfValid(JSONObject newJsonObject, String key) throws ParseException {
-
-		String json = newJsonObject.toString();
-		JSONParser parser = new JSONParser();
-		Object obj = parser.parse(json);
-
-		Map<String, String> map = (Map) obj;
-		Map<String, String> map_key = jedis.hgetAll(key);
-
-		for (Map.Entry<String, String> entry : map.entrySet()) {
-			if (map_key.containsKey(entry.getKey()) && jedis.type(map_key.get(entry.getKey())).equals("none")
-					&& !entry.getKey().equals("_id")) {
-				map_key.put(entry.getKey(), entry.getValue());
-			}
-		}
-		jedis.hmset(key, map_key);
-		return "";
-
-	}
 
 	// @RequestMapping(value = "/test_string/{id}", method = RequestMethod.GET)
 	// @ResponseBody
@@ -680,84 +518,6 @@ public class TestService {
 
 	}
 
-	// Method to convert the elements back to JSON Object
-	public Object reconstructJson_no_string_operation(String id, Object object) {
-		// Jedis jedis = getRedisConnection();
-		Map<String, String> jsonReconstruct = null;
-		Set jsonList = null;
-		JSONObject parentJson = null;
-		JSONArray parentArray = null;
-
-		if (object instanceof JSONArray) {
-			jsonList = jedis.smembers(id);
-			parentArray = (JSONArray) object;
-
-			for (Object entry : jsonList) {
-				// System.out.println(stock);
-
-				if (jedis.type(entry.toString()).equals("hash")) {
-					System.out.println("Jedis object type=" + jedis.type(entry.toString()));
-					JSONObject childJson = new JSONObject();
-					parentArray.add(reconstructJson_no_string_operation(entry.toString(), childJson));
-
-					// System.out.println("object");
-				} else if (jedis.type(entry.toString()).equals("set")) {
-					System.out.println("Jedis object type=" + jedis.type(entry.toString()));
-					JSONArray jsonArray = new JSONArray();
-					parentArray.add(reconstructJson_no_string_operation(entry.toString(), jsonArray));
-
-					// System.out.println("Array");
-				} else {
-					parentArray.add(entry.toString());
-				}
-
-			}
-			return parentArray;
-
-		} else if (object instanceof JSONObject) {
-			jsonReconstruct = jedis.hgetAll(id);
-			parentJson = (JSONObject) object;
-
-			for (Map.Entry<String, String> entry : jsonReconstruct.entrySet()) {
-				// System.out.println("Key : " + entry.getKey() + " Value : " +
-				// entry.getValue());
-
-				if (jedis.type(entry.getValue().toString()).equals("hash")) {
-					System.out.println("Jedis object type=" + jedis.type(entry.getValue().toString()));
-					JSONObject childJson = new JSONObject();
-
-					parentJson.put(entry.getKey(), reconstructJson_no_string_operation(entry.getValue(), childJson));
-					// System.out.println("object");
-				} else if (jedis.type(entry.getValue().toString()).equals("set")) {
-					System.out.println("Jedis object type=" + jedis.type(entry.getValue().toString()));
-					// parentJson
-					JSONArray jsonArray = new JSONArray();
-					parentJson.put(entry.getKey(), reconstructJson_no_string_operation(entry.getValue(), jsonArray));
-					// JSONObject childJson = new JSONObject();
-					// childJson=reconstructJson(entry.getValue(), childJson);
-					// jsonArray.add(childJson);
-					// parentJson.put(entry.getKey(),jsonArray );
-
-					// System.out.println("Array");
-				} else {
-
-					System.out.println("Jedis object type=" + jedis.type(entry.getValue().toString()));
-					parentJson.put(entry.getKey(), entry.getValue());
-				}
-
-				// jsonObject.put(entry.getKey(), entry.getValue());
-
-			}
-			return parentJson;
-
-		} else {
-
-		}
-		return parentJson;
-
-		// jsonObject.putAll(jsonReconstruct);
-
-	}
 
 	public void recursionGetIds(String jsonTrial, String ParentUUID)
 			throws JsonParseException, JsonMappingException, IOException {
@@ -906,81 +666,6 @@ public class TestService {
 		return new JSONParser();
 	}
 
-	public void recursion(String jsonTrial, String ParentUUID)
-			throws JsonParseException, JsonMappingException, IOException {
-
-		ObjectMapper om = new ObjectMapper();
-		JsonNode node = om.readValue(jsonTrial, JsonNode.class);
-		String firstLevel = ParentUUID;
-		// create an initial map
-		Map<String, String> flatValues = new HashMap<String, String>();
-		// String firstLevel = getHash();
-
-		Iterator<Map.Entry<String, JsonNode>> iterator = node.fields();
-		// System.out.println("Jsontrial: " + js.toString());
-		while (iterator.hasNext()) {
-			Map.Entry<String, JsonNode> entry = (Map.Entry<String, JsonNode>) iterator.next();
-
-			if (entry.getValue().isObject()) {
-
-				firstLevel = ParentUUID + "_Object_" + getHash();
-
-				flatValues.put(entry.getKey(), firstLevel);
-				// continue;
-				// temporary skipping of below 2 lines
-				// System.out.println("Object_key= " + entry.getKey());
-				recursion(entry.getValue().toString(), firstLevel);
-			} else if (entry.getValue().isArray()) {
-				System.out.println("array");
-
-				// setting the array in parent hashmap key as array_key and
-				// value as array_uuid
-				String ArrayKey = ParentUUID + "_" + "Array" + "_" + getHash();
-				flatValues.put(entry.getKey(), ArrayKey);
-				System.out.println("Array_key=    " + entry.getKey());
-
-				for (JsonNode arrayElement : entry.getValue()) {
-					if (arrayElement.isObject()) {
-
-						String ObjectKey = ArrayKey + "_Object_" + getHash();
-						// for iterating objects inside array and storing their
-						// keys in array
-						jedis.sadd(ArrayKey, ObjectKey);
-
-						// recursively iterating objects inside array
-						recursion(arrayElement.toString(), ObjectKey);
-
-					} else {
-						// if not an object then storing directly as element in
-						// array
-						jedis.sadd(ArrayKey, arrayElement.asText());
-
-						System.out.println(arrayElement.toString());
-
-					}
-					// this is for iterating single element within array if it
-					// is not an object and individual element
-					// else {
-					//
-					// System.out.println("value= " + j.asText());
-					// }
-				}
-				System.out.println("");
-			} else {
-
-				flatValues.put(entry.getKey(), entry.getValue().asText());
-
-				System.out.println("inner_key=" + entry.getKey());
-				System.out.println("value = " + entry.getValue().toString());
-			}
-
-		}
-
-		jedis.hmset(ParentUUID, flatValues);
-
-	}
-	
-	
 	
 	
 
