@@ -277,8 +277,8 @@ public class TestService {
 		// if (status == "success") {
 
 		deleteNestingById(id);
-		
-		secondRecursiveSubmit(patchedJSONObject.toString(),"");
+		firstRecursiveSubmit_optimized_keys(patchedJSONObject.toString(), null, "");
+		//secondRecursiveSubmit(patchedJSONObject.toString(),"");
 	//	test_nesting(patchedJSONObject);
 
 		// }
@@ -471,7 +471,8 @@ public class TestService {
 
 			for (Map.Entry<String, String> entry : jsonReconstruct.entrySet()) {
 
-				if (entry.getKey().equals("_id") && entry.getValue().equals(parentID)) {
+	//			if (entry.getKey().equals("_id") && entry.getValue().equals(parentID)) {
+					if (entry.getKey().equals("_id") ) {
 					System.out.println("id at this stage" + id);
 					parentJson.put(entry.getKey(), entry.getValue());
 				} else {
@@ -669,106 +670,6 @@ public class TestService {
 	
 	
 
-	public void secondRecursiveSubmit(String jsonTrial, String ParentUUID)
-			throws JsonParseException, JsonMappingException, IOException {
-
-		ObjectMapper om = new ObjectMapper();
-		JsonNode node = om.readValue(jsonTrial, JsonNode.class);
-		String firstLevel = null;
-
-		Map<String, String> flatValues = new HashMap<String, String>();
-
-		if (null == ParentUUID || ParentUUID.isEmpty()) {
-
-			Iterator<Map.Entry<String, JsonNode>> iteratorForId = node.fields();
-			while (iteratorForId.hasNext()) {
-				Map.Entry<String, JsonNode> entryCheckForId = (Map.Entry<String, JsonNode>) iteratorForId.next();
-				if (entryCheckForId.getKey().equals("_id") && !entryCheckForId.getValue().asText().isEmpty()
-						&& !entryCheckForId.getValue().isObject() && !entryCheckForId.getValue().isArray()) {
-
-					ParentUUID = entryCheckForId.getValue().asText();
-				}
-			}
-
-			if (null == ParentUUID || ParentUUID.isEmpty()) {
-				ParentUUID = getHash();
-								
-			}
-		}
-
-		Iterator<Map.Entry<String, JsonNode>> iterator = node.fields();
-
-		// System.out.println("Jsontrial: " + js.toString());
-		while (iterator.hasNext()) {
-			Map.Entry<String, JsonNode> entry = (Map.Entry<String, JsonNode>) iterator.next();
-			if (entry.getValue().isObject()) {
-				String _id =getId(entry.getValue().toString());
-				firstLevel = ParentUUID + "_" + entry.getKey().toString() + "_" + _id;
-				flatValues.put(entry.getKey(), firstLevel);
-				// continue;
-				// temporary skipping of below 2 lines
-				// System.out.println("Object_key= " + entry.getKey());
-				secondRecursiveSubmit(entry.getValue().toString(), firstLevel);
-			} else if (entry.getValue().isArray()) {
-				System.out.println("array");
-
-				// setting the array in parent hashmap key as array_key and
-				// value as array_uuid
-				String arrayKey = null;
-				if (entry.getKey().toString() == null || entry.getKey().toString().equals("")) {
-					arrayKey = ParentUUID + "_Array_" + getHash();
-				} else {
-
-					arrayKey = ParentUUID + "_" + entry.getKey().toString() + "_" + getHash();
-				}
-
-				flatValues.put(entry.getKey(), arrayKey);
-				System.out.println("Array_key=    " + entry.getKey());
-
-				for (JsonNode arrayElement : entry.getValue()) {
-					if (arrayElement.isObject()) {
-
-						String ObjectKey = arrayKey + "_" + entry.getKey().toString() + "_"
-								+ getId(arrayElement.toString());
-						// for iterating objects inside array and storing their
-						// keys in array
-						jedis.sadd(arrayKey, ObjectKey);
-
-						// recursively iterating objects inside array
-						secondRecursiveSubmit(arrayElement.toString(), ObjectKey);
-
-					} else {
-						// if not an object then storing directly as element in
-						// array
-						jedis.sadd(arrayKey, arrayElement.asText());
-
-						System.out.println(arrayElement.toString());
-
-					}
-					// this is for iterating single element within array if it
-					// is not an object and individual element
-					// else {
-					//
-					// System.out.println("value= " + j.asText());
-					// }
-				}
-				System.out.println("");
-			} else {
-
-				flatValues.put(entry.getKey(), entry.getValue().asText());
-
-				System.out.println("inner_key=" + entry.getKey());
-				System.out.println("value = " + entry.getValue().toString());
-			}
-
-		}
-		if (!MapUtils.isEmpty(flatValues)) {
-			jedis.hmset(ParentUUID, flatValues);
-		}
-
-	}
-	
-
 
 public void firstRecursiveSubmit(String jsonTrial, String ParentUUID,String identifier)
 			throws JsonParseException, JsonMappingException, IOException {
@@ -874,6 +775,106 @@ public void firstRecursiveSubmit(String jsonTrial, String ParentUUID,String iden
 
 
 
+public void secondRecursiveSubmit(String jsonTrial, String ParentUUID)
+		throws JsonParseException, JsonMappingException, IOException {
+
+	ObjectMapper om = new ObjectMapper();
+	JsonNode node = om.readValue(jsonTrial, JsonNode.class);
+	String firstLevel = null;
+
+	Map<String, String> flatValues = new HashMap<String, String>();
+
+	if (null == ParentUUID || ParentUUID.isEmpty()) {
+
+		Iterator<Map.Entry<String, JsonNode>> iteratorForId = node.fields();
+		while (iteratorForId.hasNext()) {
+			Map.Entry<String, JsonNode> entryCheckForId = (Map.Entry<String, JsonNode>) iteratorForId.next();
+			if (entryCheckForId.getKey().equals("_id") && !entryCheckForId.getValue().asText().isEmpty()
+					&& !entryCheckForId.getValue().isObject() && !entryCheckForId.getValue().isArray()) {
+
+				ParentUUID = entryCheckForId.getValue().asText();
+			}
+		}
+
+		if (null == ParentUUID || ParentUUID.isEmpty()) {
+			ParentUUID = getHash();
+							
+		}
+	}
+
+	Iterator<Map.Entry<String, JsonNode>> iterator = node.fields();
+
+	// System.out.println("Jsontrial: " + js.toString());
+	while (iterator.hasNext()) {
+		Map.Entry<String, JsonNode> entry = (Map.Entry<String, JsonNode>) iterator.next();
+		if (entry.getValue().isObject()) {
+			String _id =getId(entry.getValue().toString());
+			//firstLevel = ParentUUID + "_" + entry.getKey().toString() + "_" + _id;
+			flatValues.put(entry.getKey(), _id);
+			// continue;
+			// temporary skipping of below 2 lines
+			// System.out.println("Object_key= " + entry.getKey());
+			secondRecursiveSubmit(entry.getValue().toString(), _id);
+		} else if (entry.getValue().isArray()) {
+			System.out.println("array");
+
+			// setting the array in parent hashmap key as array_key and
+			// value as array_uuid
+			String arrayKey = null;
+		//	if (entry.getKey().toString() == null || entry.getKey().toString().equals("")) {
+				arrayKey = ParentUUID + "_Array_" + getHash();
+		//	} else {
+
+			//	arrayKey = ParentUUID + "_" + entry.getKey().toString() + "_" + getHash();
+		//	}
+
+			flatValues.put(entry.getKey(), arrayKey);
+			System.out.println("Array_key=    " + entry.getKey());
+
+			for (JsonNode arrayElement : entry.getValue()) {
+				if (arrayElement.isObject()) {
+
+					String ObjectKey = arrayKey + "_" + entry.getKey().toString() + "_"
+							+ getId(arrayElement.toString());
+					// for iterating objects inside array and storing their
+					// keys in array
+					jedis.sadd(arrayKey, ObjectKey);
+
+					// recursively iterating objects inside array
+					secondRecursiveSubmit(arrayElement.toString(), ObjectKey);
+
+				} else {
+					// if not an object then storing directly as element in
+					// array
+					jedis.sadd(arrayKey, arrayElement.asText());
+
+					System.out.println(arrayElement.toString());
+
+				}
+				// this is for iterating single element within array if it
+				// is not an object and individual element
+				// else {
+				//
+				// System.out.println("value= " + j.asText());
+				// }
+			}
+			System.out.println("");
+		} else {
+
+			flatValues.put(entry.getKey(), entry.getValue().asText());
+
+			System.out.println("inner_key=" + entry.getKey());
+			System.out.println("value = " + entry.getValue().toString());
+		}
+
+	}
+	if (!MapUtils.isEmpty(flatValues)) {
+		jedis.hmset(ParentUUID, flatValues);
+	}
+
+}
+
+
 
 public void firstRecursiveSubmit_optimized_keys(String jsonTrial, String ParentUUID,String identifier)
 		throws JsonParseException, JsonMappingException, IOException {
@@ -900,6 +901,10 @@ public void firstRecursiveSubmit_optimized_keys(String jsonTrial, String ParentU
 			ParentUUID = getHash();
 			identifier = "plan_"+ParentUUID;
 			
+		}
+		
+		if (ParentUUID.toString().contains("plan_")){
+			identifier=ParentUUID;
 		}
 	}
 	flatValues.put("_id", identifier);
