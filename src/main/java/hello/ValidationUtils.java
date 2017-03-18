@@ -6,6 +6,7 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.apache.http.util.TextUtils;
 
@@ -90,5 +91,11 @@ public class ValidationUtils {
 			}
 		}
 		return map;
+	}
+	
+	public static boolean checkNumber(String content){
+		String pattern = "^[0-9.]*$";
+			return Pattern.matches(pattern, content);
+		
 	}
 }
