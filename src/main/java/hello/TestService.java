@@ -13,6 +13,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -29,6 +30,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -57,28 +59,51 @@ import redis.clients.jedis.Jedis;
 @RestController
 @RequestMapping(value = "/")
 public class TestService {
+
 	public Jedis jedis;
 	public JSONParser jsonparser;
+	private static boolean isMessageQueueInitialized = false;
+	RabbitMQ rabbitMQ = null;
 
-	public TestService() {
+	// private final static String QUEUE_NAME = "task_queue";
 
+	public TestService() throws IOException, TimeoutException {
+		rabbitMQ = new RabbitMQ("uio");
 		jedis = getRedisConnection();
 		jsonparser = getJsonParser();
 
 	}
 
-	@RequestMapping(value = "/test_nesting/{id}", method = RequestMethod.DELETE)
-	@ResponseBody
-	public JSONObject deleteNestingById(@PathVariable String id) {
-		JSONObject jsonObject = null;
+	// public boolean initializeMsgQueue() {
+	// if (!isMessageQueueInitialized) {
+	// if (rabbitMQ.init()) {
+	// if (rabbitMQ.declareMessageQueue(QUEUE_NAME)) {
+	// isMessageQueueInitialized = true;
+	// }
+	// }
+	// }
+	// return isMessageQueueInitialized;
+	// }
 
+	@RequestMapping(value = "/medicalplans/{userId}", method = RequestMethod.DELETE)
+	@ResponseBody
+	public JSONObject deleteNestingById(@PathVariable String userId) {
+		JSONObject jsonObject = null;
+		String id = "plan_" + userId;
 		if (!jedis.hgetAll(id).isEmpty()) {
 
 			// return reconstructJson(id, parentJson);
 			// jsonObject = (JSONObject) deleteJson(id, new JSONObject());
 			jsonObject = deleteById(id);
+			//delete message by queue
+			String idToDelete= "delete"+"-"+id;
+			rabbitMQ.postMessageToQueue(idToDelete);
+			
+			
 			return jsonObject;
 		} else {
+			String idToDelete= "delete"+"-"+id;
+			rabbitMQ.postMessageToQueue(idToDelete);
 			jsonObject = new JSONObject();
 			jsonObject.put("Message", "ID does not exist");
 			return jsonObject;
@@ -110,26 +135,28 @@ public class TestService {
 
 	}
 
-	@RequestMapping(value = "/test_nesting/jsonpath", method = RequestMethod.POST)
-	@ResponseBody
-	public void test_nesting_json_path(@RequestBody JSONObject jsonObject)
-			throws JsonParseException, JsonMappingException, IOException, JSONException {
+	// @RequestMapping(value = "/test_nesting/jsonpath", method =
+	// RequestMethod.POST)
+	// @ResponseBody
+	// public void test_nesting_json_path(@RequestBody JSONObject jsonObject)
+	// throws JsonParseException, JsonMappingException, IOException,
+	// JSONException {
+	//
+	// String json_string = jsonObject.toJSONString();
+	//
+	// JsonParser_temp jsonParser_temp = new JsonParser_temp(json_string);
+	//
+	// Iterator<String> itr = jsonParser_temp.getPathList().iterator();
+	//
+	// while (itr.hasNext()) {
+	// String employee = itr.next();
+	//
+	// System.out.println(employee);
+	//
+	// }
+	// }
 
-		String json_string = jsonObject.toJSONString();
-
-		JsonParser_temp jsonParser_temp = new JsonParser_temp(json_string);
-
-		Iterator<String> itr = jsonParser_temp.getPathList().iterator();
-
-		while (itr.hasNext()) {
-			String employee = itr.next();
-
-			System.out.println(employee);
-
-		}
-	}
-
-	@RequestMapping(value = "/test_nesting", method = RequestMethod.POST)
+	@RequestMapping(value = "/medicalplans", method = RequestMethod.POST)
 	@ResponseBody
 	public String test_nesting(@RequestBody JSONObject jsonObject, HttpServletRequest request,
 			HttpServletResponse response)
@@ -138,15 +165,20 @@ public class TestService {
 		String userToken = request.getHeader("Authorization");
 		JSONObject jo = checkValidAccess(userToken);
 
-		if (!jo.isEmpty()&&(jo.get("role").equals("user") || jo.get("role").equals("admin"))) {
+		if (!jo.isEmpty() && (jo.get("role").equals("user") || jo.get("role").equals("admin"))) {
 			String json_string = jsonObject.toJSONString();
-			//JSONObject jsonSchemaObj = (JSONObject) jsonparser
-			//		.parse(new FileReader("src/main/resources/insurance_plan.json"));
-			
-			JSONObject jsonSchemaObj =	getSchema();
+			// JSONObject jsonSchemaObj = (JSONObject) jsonparser
+			// .parse(new FileReader("src/main/resources/insurance_plan.json"));
+
+			JSONObject jsonSchemaObj = getSchema();
 			String status = ValidationUtils.isJsonValid(jsonSchemaObj.toString(), jsonObject.toString());
 			if (status == "success") {
-				return firstRecursiveSubmit_optimized_keys(json_string, null, "");
+				String data = indexer_test(json_string, null, "");
+				 
+
+				rabbitMQ.postMessageToQueue(data);
+				String[] onlyPlanId = data.split("_");
+				return onlyPlanId[1];
 
 			} else {
 				return "Not Valid JSON";
@@ -160,22 +192,25 @@ public class TestService {
 	}
 
 	//////////////////////////////////////////////////////////////////////////////
-	@RequestMapping(value = "/test_nesting/{id}", method = RequestMethod.GET)
+	@RequestMapping(value = "/medicalplans/{userId}", method = RequestMethod.GET)
 	@ResponseBody
-	public JSONObject test_nesting(@PathVariable String id, HttpServletResponse response, HttpServletRequest request)
-			throws JsonParseException, JsonMappingException, IOException, ParseException {
+	public JSONObject test_nesting(@PathVariable String userId, HttpServletResponse response,
+			HttpServletRequest request) throws JsonParseException, JsonMappingException, IOException, ParseException {
+
+		String id = "plan_" + userId;
 
 		JSONObject parentJson = new JSONObject();
 
 		String userToken = request.getHeader("Authorization");
 		JSONObject jo = checkValidAccess(userToken);
 
-		if (!jo.isEmpty()&&jo.get("id").equals(id) && (jo.get("role").equals("user") || jo.get("role").equals("admin"))) {
+//		if (!jo.isEmpty() && jo.get("id").equals(id) && 
+		if (	(jo.get("role").equals("user") || jo.get("role").equals("admin"))) {
 
 			// JSONObject actualJson = new JSONObject();
 			HashSet<String> allKeys = new HashSet<>();
 			parentID = id;
-			parentJson = (JSONObject) reconstructJsonEtag(id, parentJson, "", allKeys);
+			parentJson = (JSONObject) indexer_test_get(id, parentJson, "", allKeys);
 
 			StringBuilder sb = new StringBuilder();
 
@@ -215,7 +250,7 @@ public class TestService {
 			else {
 				parentJson = new JSONObject();
 				parentJson.put("message", "id does not exist");
-				response.setStatus(401);
+				response.setStatus(404);
 			}
 
 			return parentJson;
@@ -224,7 +259,7 @@ public class TestService {
 
 		else {
 
-			response.setStatus(404);
+			response.setStatus(401);
 			return parentJson;
 		}
 
@@ -267,11 +302,12 @@ public class TestService {
 	// return "";
 	// }
 
-	@RequestMapping(value = "/test_nesting/{id}", method = RequestMethod.PATCH)
+	@RequestMapping(value = "/medicalplans/{userId}", method = RequestMethod.PATCH)
 	@ResponseBody
-	public JSONObject test_nesting_lib_patch(@RequestBody JsonNode jsonNode, @PathVariable String id)
+	public JSONObject test_nesting_lib_patch(@RequestBody JsonNode jsonNode, @PathVariable String userId)
 			throws ParseException, JsonParseException, JsonMappingException, IOException, JsonPatchException,
 			ProcessingException {
+		String id = "plan_" + userId;
 		JSONObject jsonObject = null;
 		// convert received item to json node
 		if (id.contains("plan_") && jedis.type(id).equals("hash")) {
@@ -294,12 +330,11 @@ public class TestService {
 
 			JSONObject patchedJSONObject = mapper.convertValue(patched, JSONObject.class);
 
-		
-			//JSONObject jsonSchemaObj = (JSONObject) jsonparser
-				//	.parse(new FileReader("src/main/resources/insurance_plan.json"));
-			
+			// JSONObject jsonSchemaObj = (JSONObject) jsonparser
+			// .parse(new FileReader("src/main/resources/insurance_plan.json"));
+
 			JSONObject jsonSchemaObj = getSchema();
-			
+
 			String status = ValidationUtils.isJsonValid(jsonSchemaObj.toString(), patchedJSONObject.toString());
 			if (status == "success") {
 
@@ -309,7 +344,7 @@ public class TestService {
 				// firstRecursiveSubmit_optimized_keys(patchedJSONObject.toString(),
 				// null, "",allKeys);
 				firstRecursiveSubmit_optimized_keys(patchedJSONObject.toString(), null, "");
-
+				//String data = indexer_test(patchedJSONObject.toString(), null, "");
 				JSONObject parentJson = new JSONObject();
 				parentJson = (JSONObject) reconstructJsonEtag(id, parentJson, "", allKeys);
 
@@ -333,6 +368,9 @@ public class TestService {
 				// test_nesting(patchedJSONObject);
 				// reconstructJsonEtag(id, object, jsonPath, allKeys)
 				// }
+				String idToDelete= "update"+"-"+id;
+				rabbitMQ.postMessageToQueue(idToDelete);
+			//	rabbitMQ.postMessageToQueue(jsonObject.toString());
 
 				jsonObject.put("Message", id + " update successfully");
 
@@ -542,7 +580,7 @@ public class TestService {
 
 				// if (entry.getKey().equals("_id") &&
 				// entry.getValue().equals(parentID)) {
-				if (entry.getKey().equals("_id")) {
+				if (entry.getKey().equals("id")) {
 					System.out.println("id at this stage" + id);
 					parentJson.put(entry.getKey(), entry.getValue());
 				} else {
@@ -594,6 +632,111 @@ public class TestService {
 
 	}
 
+	
+	public Object indexer_test_get(String id, Object object, String jsonPath, HashSet<String> allKeys) {
+
+		// Jedis jedis = getRedisConnection();
+		Map<String, String> jsonReconstruct = null;
+		ArrayList jsonList = null;
+		JSONObject parentJson = null;
+		JSONArray parentArray = null;
+
+		if (object instanceof JSONArray) {
+			String parentPath = jsonPath;
+			jsonList = new ArrayList();
+			jsonList.addAll(jedis.smembers(id));
+			parentArray = (JSONArray) object;
+
+			for (int i = 0; i < jsonList.size(); i++) {
+				// System.out.println(stock);
+				Object entry = jsonList.get(i);
+				if (jedis.type(entry.toString()).equals("hash")) {
+
+					System.out.println("id at this stage" + id);
+					System.out.println("Jedis object type=" + jedis.type(entry.toString()));
+					JSONObject childJson = new JSONObject();
+					jsonPath = parentPath + "/" + i;
+					childJson.put("_self", jsonPath);
+					parentArray.add(indexer_test_get(entry.toString(), childJson, jsonPath, allKeys));
+
+					System.out.println("object");
+				} else if (jedis.type(entry.toString()).equals("set")) {
+					System.out.println("id at this stage" + id);
+					System.out.println("Jedis object type=" + jedis.type(entry.toString()));
+
+					JSONArray jsonArray = new JSONArray();
+					parentArray.add(indexer_test_get(entry.toString(), jsonArray, jsonPath, allKeys));
+
+					System.out.println("Array");
+				} else {
+					allKeys.add(entry.toString());
+					System.out.println("id at this stage" + id);
+					parentArray.add(entry.toString());
+				}
+
+			}
+			return parentArray;
+
+		} else if (object instanceof JSONObject) {
+			jsonReconstruct = jedis.hgetAll(id);
+			parentJson = (JSONObject) object;
+			String parentPath = jsonPath;
+
+			for (Map.Entry<String, String> entry : jsonReconstruct.entrySet()) {
+
+				// if (entry.getKey().equals("_id") &&
+				// entry.getValue().equals(parentID)) {
+				if (entry.getKey().equals("id")) {
+					System.out.println("id at this stage" + id);
+					parentJson.put(entry.getKey(), entry.getValue());
+				} else {
+					System.out.println("id at this stage" + id);
+					System.out.println("Key : " + entry.getKey() + " Value : " + entry.getValue());
+
+					if (jedis.type(entry.getValue().toString()).equals("hash")) {
+						// System.out.println("Jedis object type=" +
+						// jedis.type(entry.getValue().toString()));
+						JSONObject childJson = new JSONObject();
+						jsonPath = parentPath + "/" + entry.getKey();
+						childJson.put("_self", jsonPath);
+						parentJson.put(entry.getKey(),
+								indexer_test_get(entry.getValue(), childJson, jsonPath, allKeys));
+						System.out.println("object");
+					} else if (jedis.type(entry.getValue().toString()).equals("set")) {
+						System.out.println("id at this stage" + id);
+						System.out.println("Jedis object type=" + jedis.type(entry.getValue().toString()));
+						jsonPath = parentPath + "/" + entry.getKey();
+						// parentJson
+						JSONArray jsonArray = new JSONArray();
+						parentJson.put(entry.getKey(),
+								indexer_test_get(entry.getValue(), jsonArray, jsonPath, allKeys));
+						// JSONObject childJson = new JSONObject();
+						// childJson=reconstructJson(entry.getValue(),
+						// childJson);
+						// jsonArray.add(childJson);
+						// parentJson.put(entry.getKey(),jsonArray );
+
+						System.out.println("Array");
+					} else {
+						allKeys.add(entry.getValue());
+						System.out.println("id at this stage" + id);
+						parentJson.put(entry.getKey(), entry.getValue());
+					}
+
+					// jsonObject.put(entry.getKey(), entry.getValue());
+				}
+
+			}
+			return parentJson;
+
+		} else {
+
+		}
+		return parentJson;
+
+		// jsonObject.putAll(jsonReconstruct);
+
+	}
 	// Method to store JSON Object in Redis Key Store in a nested fashion
 
 	public Object reconstructJson(String id, Object object) {
@@ -642,7 +785,7 @@ public class TestService {
 
 				// if (entry.getKey().equals("_id") &&
 				// entry.getValue().equals(parentID)) {
-				if (entry.getKey().equals("_id")) {
+				if (entry.getKey().equals("id")) {
 					System.out.println("id at this stage" + id);
 					parentJson.put(entry.getKey(), entry.getValue());
 				} else {
@@ -737,7 +880,7 @@ public class TestService {
 
 				// if (entry.getKey().equals("_id") &&
 				// entry.getValue().equals(parentID)) {
-				if (entry.getKey().equals("_id")) {
+				if (entry.getKey().equals("id")) {
 					System.out.println("id at this stage" + id);
 					parentJson.put(entry.getKey(), entry.getValue());
 				} else {
@@ -888,6 +1031,27 @@ public class TestService {
 		while (iteratorForId.hasNext()) {
 			Map.Entry<String, JsonNode> entryCheckForId = (Map.Entry<String, JsonNode>) iteratorForId.next();
 			if (entryCheckForId.getKey().equals("_id") && !entryCheckForId.getValue().asText().isEmpty()
+					&& !entryCheckForId.getValue().isObject() && !entryCheckForId.getValue().isArray()) {
+				id = entryCheckForId.getValue().asText();
+			}
+		}
+		if (null == id || id.isEmpty()) {
+			id = getHash();
+		}
+
+		return id;
+	}
+	
+	private String getIdWithoutUnderScore(String jsonTrial) throws JsonParseException, JsonMappingException, IOException {
+		// TODO Auto-generated method stub
+
+		ObjectMapper om = new ObjectMapper();
+		JsonNode node = om.readValue(jsonTrial, JsonNode.class);
+		String id = null;
+		Iterator<Map.Entry<String, JsonNode>> iteratorForId = node.fields();
+		while (iteratorForId.hasNext()) {
+			Map.Entry<String, JsonNode> entryCheckForId = (Map.Entry<String, JsonNode>) iteratorForId.next();
+			if (entryCheckForId.getKey().equals("id") && !entryCheckForId.getValue().asText().isEmpty()
 					&& !entryCheckForId.getValue().isObject() && !entryCheckForId.getValue().isArray()) {
 				id = entryCheckForId.getValue().asText();
 			}
@@ -1168,7 +1332,7 @@ public class TestService {
 			Iterator<Map.Entry<String, JsonNode>> iteratorForId = node.fields();
 			while (iteratorForId.hasNext()) {
 				Map.Entry<String, JsonNode> entryCheckForId = (Map.Entry<String, JsonNode>) iteratorForId.next();
-				if (entryCheckForId.getKey().equals("_id") && !entryCheckForId.getValue().asText().isEmpty()
+				if (entryCheckForId.getKey().equals("id") && !entryCheckForId.getValue().asText().isEmpty()
 						&& !entryCheckForId.getValue().isObject() && !entryCheckForId.getValue().isArray()) {
 
 					ParentUUID = entryCheckForId.getValue().asText();
@@ -1185,7 +1349,7 @@ public class TestService {
 				identifier = ParentUUID;
 			}
 		}
-		flatValues.put("_id", identifier);
+		flatValues.put("id", identifier);
 
 		Iterator<Map.Entry<String, JsonNode>> iterator = node.fields();
 
@@ -1276,7 +1440,7 @@ public class TestService {
 			Iterator<Map.Entry<String, JsonNode>> iteratorForId = node.fields();
 			while (iteratorForId.hasNext()) {
 				Map.Entry<String, JsonNode> entryCheckForId = (Map.Entry<String, JsonNode>) iteratorForId.next();
-				if (entryCheckForId.getKey().equals("_id") && !entryCheckForId.getValue().asText().isEmpty()
+				if (entryCheckForId.getKey().equals("id") && !entryCheckForId.getValue().asText().isEmpty()
 						&& !entryCheckForId.getValue().isObject() && !entryCheckForId.getValue().isArray()) {
 
 					ParentUUID = entryCheckForId.getValue().asText();
@@ -1295,7 +1459,7 @@ public class TestService {
 			}
 		}
 
-		flatValues.put("_id", identifier);
+		flatValues.put("id", identifier);
 
 		Iterator<Map.Entry<String, JsonNode>> iterator = node.fields();
 
@@ -1360,7 +1524,7 @@ public class TestService {
 				System.out.println("");
 			} else {
 
-				if (!entry.getKey().equals("_id")) {
+				if (!entry.getKey().equals("id")) {
 
 					loadNewHash.add(entry.getValue().asText());
 				}
@@ -1376,7 +1540,7 @@ public class TestService {
 	}
 
 	@ExceptionHandler({ org.springframework.http.converter.HttpMessageNotReadableException.class })
-	@RequestMapping(value = "/test_nesting/getToken", method = RequestMethod.POST)
+	@RequestMapping(value = "/medicalplans/getToken", method = RequestMethod.POST)
 	@ResponseBody
 	public String getToken(@Valid @RequestBody(required = false) JSONObject jsonObject, HttpServletResponse response)
 			throws JSONException, FileNotFoundException {
@@ -1399,7 +1563,7 @@ public class TestService {
 	public JSONObject checkValidAccess(String token)
 			throws JsonParseException, JsonMappingException, IOException, ParseException {
 		JSONObject jo = new JSONObject();
-		if (null!=token&&(token.length() % 2) == 0) {
+		if (null != token && (token.length() % 2) == 0) {
 
 			String json = Encryptor.decryptData(token);
 			JSONParser jp = new JSONParser();
@@ -1408,7 +1572,7 @@ public class TestService {
 
 			String role = (String) jo.get("role");
 			String id = (String) jo.get("id");
-			//System.out.println(id + role);
+			// System.out.println(id + role);
 
 		}
 
@@ -1426,7 +1590,7 @@ public class TestService {
 		return "json_schema";
 
 	}
-	
+
 	@RequestMapping(value = "/schema", method = RequestMethod.GET)
 	@ResponseBody
 	public JSONObject getSchema() throws JsonParseException, JsonMappingException, IOException, ParseException {
@@ -1434,8 +1598,116 @@ public class TestService {
 		JSONObject json = (JSONObject) jsonparser.parse(jedis.get("json_schema"));
 		return json;
 
-		
-
 	}
 
+	
+	
+	public String indexer_test(String jsonTrial, String ParentUUID, String identifier)
+			throws JsonParseException, JsonMappingException, IOException {
+
+		ObjectMapper om = new ObjectMapper();
+		JsonNode node = om.readValue(jsonTrial, JsonNode.class);
+		String firstLevel = null;
+
+		Map<String, String> flatValues = new HashMap<String, String>();
+
+		if (null == ParentUUID || ParentUUID.isEmpty()) {
+
+			Iterator<Map.Entry<String, JsonNode>> iteratorForId = node.fields();
+			while (iteratorForId.hasNext()) {
+				Map.Entry<String, JsonNode> entryCheckForId = (Map.Entry<String, JsonNode>) iteratorForId.next();
+				if (entryCheckForId.getKey().equals("id") && !entryCheckForId.getValue().asText().isEmpty()
+						&& !entryCheckForId.getValue().isObject() && !entryCheckForId.getValue().isArray()) {
+
+					ParentUUID = entryCheckForId.getValue().asText();
+				}
+			}
+
+			if (null == ParentUUID || ParentUUID.isEmpty()) {
+				ParentUUID = getHash();
+				identifier = "plan_" + ParentUUID;
+
+			}
+
+			if (ParentUUID.toString().contains("plan_")) {
+				identifier = ParentUUID;
+			}
+		}
+		flatValues.put("id", identifier);
+
+		Iterator<Map.Entry<String, JsonNode>> iterator = node.fields();
+
+		// System.out.println("Jsontrial: " + js.toString());
+		while (iterator.hasNext()) {
+			Map.Entry<String, JsonNode> entry = (Map.Entry<String, JsonNode>) iterator.next();
+			if (entry.getValue().isObject()) {
+				String _id = getIdWithoutUnderScore(entry.getValue().toString());
+				firstLevel = ParentUUID + "_" + entry.getKey().toString() + "_" + _id;
+				flatValues.put(entry.getKey(), _id);
+
+				// continue;
+				// temporary skipping of below 2 lines
+				// System.out.println("Object_key= " + entry.getKey());
+				indexer_test(entry.getValue().toString(), _id, _id);
+			} else if (entry.getValue().isArray()) {
+				System.out.println("array");
+
+				// setting the array in parent hashmap key as array_key and
+				// value as array_uuid
+				String arrayKey = null;
+				// if (entry.getKey().toString() == null ||
+				// entry.getKey().toString().equals("")) {
+				arrayKey = "array_" + getHash();
+				// } else {
+
+				// arrayKey = ParentUUID + "_" + entry.getKey().toString() + "_"
+				// + getHash();
+				// }
+
+				flatValues.put(entry.getKey(), arrayKey);
+				System.out.println("Array_key=    " + entry.getKey());
+
+				for (JsonNode arrayElement : entry.getValue()) {
+					if (arrayElement.isObject()) {
+						String _id = getId(arrayElement.toString());
+						String ObjectKey = arrayKey + "_" + entry.getKey().toString() + "_" + _id;
+						// for iterating objects inside array and storing their
+						// keys in array
+						jedis.sadd(arrayKey, _id);
+
+						// recursively iterating objects inside array
+						indexer_test(arrayElement.toString(), _id, _id);
+
+					} else {
+						// if not an object then storing directly as element in
+						// array
+						jedis.sadd(arrayKey, arrayElement.asText());
+
+						System.out.println(arrayElement.toString());
+
+					}
+					// this is for iterating single element within array if it
+					// is not an object and individual element
+					// else {
+					//
+					// System.out.println("value= " + j.asText());
+					// }
+				}
+				System.out.println("");
+			} else {
+
+				flatValues.put(entry.getKey(), entry.getValue().asText());
+
+				System.out.println("inner_key=" + entry.getKey());
+				System.out.println("value = " + entry.getValue().toString());
+			}
+
+		}
+		if (!MapUtils.isEmpty(flatValues)) {
+			jedis.hmset(identifier, flatValues);
+		}
+		return identifier;
+
+	}
+	
 }
